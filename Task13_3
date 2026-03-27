@@ -1,1 +1,52 @@
+https://colab.research.google.com/drive/1ooGrxoh0ozG91i3o6nGXQy8s9fDWXjsa#scrollTo=N1RPOkuCcHl-&line=2&uniqifier=1
 
+!pip install transformers torch pandas matplotlib huggingface_hub
+
+import pandas as pd
+import torch
+import matplotlib.pyplot as plt
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+def analyze_sentiment(text):
+    # Используем модель, доступную без аутентификации
+    tokenizer = AutoTokenizer.from_pretrained('cointegrated/rubert-tiny2')
+    model = AutoModelForSequenceClassification.from_pretrained('cointegrated/rubert-tiny2', num_labels=3)
+    
+    inputs = tokenizer(text, max_length=512, padding=True, truncation=True, return_tensors='pt')
+    outputs = model(**inputs)
+    predicted = torch.nn.functional.softmax(outputs.logits, dim=1)
+    predicted = torch.argmax(predicted, dim=1).numpy()
+    
+    # 0 = Negative, 1 = Neutral, 2 = Positive (зависит от модели)
+    if predicted[0] == 0:
+        return "Negative"
+    elif predicted[0] == 1:
+        return "Neutral"
+    else:
+        return "Positive"
+
+def main(file_path):
+    df = pd.read_csv(file_path)
+    df['predicted_sentiment'] = df['text'].apply(analyze_sentiment)
+    
+    sentiment_counts = df['predicted_sentiment'].value_counts()
+    
+    plt.figure(figsize=(8, 6))
+    bars = plt.bar(sentiment_counts.index, sentiment_counts.values, 
+                   color=['red', 'gray', 'green'])
+    plt.xlabel('Тональность')
+    plt.ylabel('Количество отзывов')
+    plt.title('Распределение тональности отзывов (Predicted)')
+    
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2., height,
+                 f'{int(height)}', ha='center', va='bottom')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    print(df[['text', 'predicted_sentiment']].head())
+    return df
+
+result = main('cafe_reviews.csv')
